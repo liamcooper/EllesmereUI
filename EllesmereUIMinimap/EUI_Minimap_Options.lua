@@ -323,9 +323,18 @@ initFrame:SetScript("OnEvent", function(self)
             EllesmereUI.RegisterWidgetRefresh(cbDDRefresh)
         end
 
-        -- Interactable Button Size | Outer-Group MM Button Size (toggle + cog)
-        local customBtnRow
-        customBtnRow, h = W:DualRow(parent, y,
+        -- Expand direction | Interactable Button Size
+        _, h = W:DualRow(parent, y,
+            { type="dropdown", text="Expand direction",
+              tooltip="When grouped addon minimap buttons open from the stack toggle, expand toward the minimap (right) or away from it (left).",
+              values = { right = "Right", left = "Left" },
+              order  = { "right", "left" },
+              getValue=function() local m = MinimapDB(); return (m and m.addonFlyoutExpand) or "right" end,
+              setValue=function(v)
+                local m = MinimapDB(); if not m then return end
+                m.addonFlyoutExpand = v
+                RefreshMinimap()
+              end },
             { type="slider", text="Interactable Button Size", min=16, max=40, step=1,
               tooltip="Size of mail, calendar, tracking, and minimap button group toggle",
               getValue=function() local m = MinimapDB(); return m and m.interactableBtnSize or 21 end,
@@ -333,7 +342,12 @@ initFrame:SetScript("OnEvent", function(self)
                 local m = MinimapDB(); if not m then return end
                 m.interactableBtnSize = v
                 RefreshMinimap()
-              end },
+              end }
+        );  y = y - h
+
+        -- Outer-Group MM Button Size (toggle + cog) | Free Move Buttons
+        local customBtnRow
+        customBtnRow, h = W:DualRow(parent, y,
             { type="toggle", text="Outer-Group MM Button Size",
               tooltip="Override the size of ungrouped minimap buttons independently from the interactable button size.",
               getValue=function() local m = MinimapDB(); return m and m.customBtnSizeEnabled end,
@@ -342,12 +356,23 @@ initFrame:SetScript("OnEvent", function(self)
                 m.customBtnSizeEnabled = v
                 RefreshMinimap()
                 EllesmereUI:RefreshPage()
+              end },
+            { type="toggle", text="Free Move Buttons",
+              tooltip="When enabled, Shift+Click any minimap button (mail, calendar, tracking, addon buttons) to drag it to a custom position.",
+              getValue=function() local m = MinimapDB(); return m and m.freeMoveBtns end,
+              setValue=function(v)
+                local m = MinimapDB(); if not m then return end
+                m.freeMoveBtns = v
+                if not v then
+                    m.btnPositions = {}
+                end
+                RefreshMinimap()
               end }
         );  y = y - h
 
         -- Inline cog on Outer-Group MM Button Size for size slider
         do
-            local rgn = customBtnRow._rightRegion
+            local rgn = customBtnRow._leftRegion
             local function isOff()
                 local m = MinimapDB(); return m and (not m.customBtnSizeEnabled)
             end
@@ -386,19 +411,8 @@ initFrame:SetScript("OnEvent", function(self)
             if isOff() then cogBlock:Show() else cogBlock:Hide() end
         end
 
-        -- Free Move Buttons | Button Backgrounds
+        -- Button Backgrounds | Hide Great Vault Button
         _, h = W:DualRow(parent, y,
-            { type="toggle", text="Free Move Buttons",
-              tooltip="When enabled, Shift+Click any minimap button (mail, calendar, tracking, addon buttons) to drag it to a custom position.",
-              getValue=function() local m = MinimapDB(); return m and m.freeMoveBtns end,
-              setValue=function(v)
-                local m = MinimapDB(); if not m then return end
-                m.freeMoveBtns = v
-                if not v then
-                    m.btnPositions = {}
-                end
-                RefreshMinimap()
-              end },
             { type="toggle", text="Button Backgrounds",
               tooltip="Show black backgrounds behind minimap indicator buttons (tracking, calendar, mail, crafting, addon buttons, flyout toggle).",
               getValue=function() local m = MinimapDB(); return m and m.btnBackgrounds ~= false end,
@@ -406,11 +420,7 @@ initFrame:SetScript("OnEvent", function(self)
                 local m = MinimapDB(); if not m then return end
                 m.btnBackgrounds = v
                 FullRebuildMinimap()
-              end }
-        );  y = y - h
-
-        -- Hide Great Vault Button | Great Vault Extra Info
-        _, h = W:DualRow(parent, y,
+              end },
             { type="toggle", text="Hide Great Vault Button",
               tooltip="Hides the Great Vault shortcut button from the minimap button stack.",
               getValue=function() local m = MinimapDB(); return m and m.hideGreatVault end,
@@ -418,7 +428,11 @@ initFrame:SetScript("OnEvent", function(self)
                 local m = MinimapDB(); if not m then return end
                 m.hideGreatVault = v
                 RefreshMinimap()
-              end },
+              end }
+        );  y = y - h
+
+        -- Great Vault Extra Info | Hide M+ Portals Button
+        _, h = W:DualRow(parent, y,
             { type="toggle", text="Great Vault Extra Info",
               tooltip="Shows a compact weekly progress summary in the Great Vault minimap button tooltip.",
               getValue=function()
@@ -429,11 +443,7 @@ initFrame:SetScript("OnEvent", function(self)
                 local m = MinimapDB(); if not m then return end
                 m.greatVaultExtraInfo = v
                 EllesmereUI:RefreshPage()
-              end }
-        );  y = y - h
-
-        -- Hide M+ Portals Button
-        _, h = W:DualRow(parent, y,
+              end },
             { type="toggle", text="Hide M+ Portals Button",
               tooltip="Hides the M+ Portals shortcut button from the minimap button stack.",
               getValue=function() local m = MinimapDB(); return m and m.hidePortals end,
@@ -441,8 +451,7 @@ initFrame:SetScript("OnEvent", function(self)
                 local m = MinimapDB(); if not m then return end
                 m.hidePortals = v
                 RefreshMinimap()
-              end },
-            { type="label", text="" }
+              end }
         );  y = y - h
 
         y = y - 10
@@ -652,7 +661,6 @@ initFrame:SetScript("OnEvent", function(self)
             if locOff() then cogBlock:Show() else cogBlock:Hide() end
         end
 
-
         return math.abs(y)
     end
 
@@ -662,6 +670,9 @@ initFrame:SetScript("OnEvent", function(self)
     EllesmereUI:RegisterModule("EllesmereUIMinimap", {
         title       = "Minimap",
         description = "Custom minimap skin and layout.",
+        -- Bumps page cache key when this options layout changes (see EllesmereUI.PageCacheKey).
+        pageLayoutVersion = 5,
+        searchTerms       = { "minimap", "flyout", "expand", "addon button", "ungroup", "grouped" },
         pages       = { "Minimap" },
         buildPage   = function(pageName, parent, yOffset)
             if pageName == "Minimap" then return BuildMinimapPage(pageName, parent, yOffset) end
@@ -678,6 +689,12 @@ initFrame:SetScript("OnEvent", function(self)
     SLASH_EMM1 = "/emm"
     SlashCmdList.EMM = function()
         if InCombatLockdown and InCombatLockdown() then return end
+        local prev = EllesmereUI.GetActiveModule and EllesmereUI:GetActiveModule()
         EllesmereUI:ShowModule("EllesmereUIMinimap")
+        -- If we were already on this module, ShowModule no-ops SelectModule; force a layout rebuild
+        -- so updated options Lua (e.g. new rows) appears without hunting stale page cache.
+        if prev == "EllesmereUIMinimap" and EllesmereUI.RefreshPage then
+            EllesmereUI:RefreshPage(true)
+        end
     end
 end)

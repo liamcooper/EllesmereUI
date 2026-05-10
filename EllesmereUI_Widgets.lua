@@ -2992,6 +2992,14 @@ function WidgetFactory:DualRow(parent, yOffset, leftCfg, rightCfg)
 
     BuildHalf(leftRegion, leftCfg)
     BuildHalf(rightRegion, rightCfg)
+    -- Full-width left half: hide empty rightRegion so it does not stack above controls.
+    if not rightCfg then
+        rightRegion:Hide()
+        rightRegion:EnableMouse(false)
+    else
+        rightRegion:Show()
+        rightRegion:EnableMouse(true)
+    end
 
     -- Slot-level search labels for per-slot highlighting
     leftRegion._slotLabel  = leftCfg and leftCfg.text or ""

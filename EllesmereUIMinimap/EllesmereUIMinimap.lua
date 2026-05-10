@@ -48,6 +48,8 @@ local defaults = {
             hideAddonCompartment = false,
             hideAddonButtons     = false,
             addonBtnSize         = 24,
+            -- "right" = grid opens toward the minimap; "left" = opens the other way
+            addonFlyoutExpand    = "right",
             interactableBtnSize  = 21,
             ungroupedButtons     = {},
             freeMoveBtns         = false,
@@ -402,6 +404,19 @@ end
 
 local _flyoutBuilt = false
 
+local function ApplyFlyoutPanelAnchor()
+    if not flyoutPanel or not flyoutToggle then return end
+    local mp = EBS.db and EBS.db.profile.minimap
+    local dir = (mp and mp.addonFlyoutExpand) or "right"
+    if dir ~= "left" then dir = "right" end
+    flyoutPanel:ClearAllPoints()
+    if dir == "left" then
+        flyoutPanel:SetPoint("BOTTOMRIGHT", flyoutToggle, "BOTTOMLEFT", -2, 0)
+    else
+        flyoutPanel:SetPoint("BOTTOMLEFT", flyoutToggle, "BOTTOMRIGHT", 2, 0)
+    end
+end
+
 local function EnsureFlyoutPanel()
     if not flyoutPanel then
         flyoutPanel = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
@@ -413,10 +428,10 @@ local function EnsureFlyoutPanel()
         })
         flyoutPanel:SetBackdropColor(0.1, 0.1, 0.1, 0.9)
         flyoutPanel:SetBackdropBorderColor(0.3, 0.3, 0.3, 1)
-        flyoutPanel:SetPoint("BOTTOMLEFT", flyoutToggle, "BOTTOMRIGHT", 2, 0)
         flyoutPanel:SetClampedToScreen(true)
         flyoutOwnedFrames[flyoutPanel] = true
     end
+    ApplyFlyoutPanelAnchor()
 end
 
 -- Build the flyout contents once. Buttons are reparented into the grid
@@ -438,6 +453,9 @@ end
 -- on buttons that may have been hidden by re-initialization.
 _G._EMIN_RefreshFlyout = function()
     InvalidateFlyout()
+    if flyoutPanel and flyoutToggle then
+        ApplyFlyoutPanelAnchor()
+    end
     if flyoutPanel and flyoutPanel:IsShown() then
         BuildFlyoutContents()
     end
@@ -2523,6 +2541,9 @@ local function ApplyMinimap()
     InvalidateFlyout()
     -- Close the flyout if it was open (layout may have changed)
     HideFlyoutPanel()
+    if flyoutPanel and flyoutToggle then
+        ApplyFlyoutPanelAnchor()
+    end
 
     -- Hide Blizzard zone text (we use our own location bar)
     local zoneBtn = MinimapZoneTextButton

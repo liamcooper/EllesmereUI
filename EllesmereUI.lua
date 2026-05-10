@@ -3818,7 +3818,7 @@ local function CreateMainFrame()
         -- Release cached pages for non-active tabs to free memory.
         -- Keep the active page so reopening shows the same content.
         if _pageCache then
-            local activeKey = activeModule and activePage and (activeModule .. "::" .. activePage)
+            local activeKey = activeModule and activePage and PageCacheKey(activeModule, activePage)
             for key, entry in pairs(_pageCache) do
                 if key ~= activeKey then
                     if entry.wrapper then
@@ -5801,6 +5801,7 @@ end
 --  Inline Search  (filter sections on the current page)
 -------------------------------------------------------------------------------
 local _pageCache  -- forward declaration; initialized below in page-cache section
+local PageCacheKey  -- forward declaration; assigned with _pageCache init below
 -- Pool of reusable highlight border frames (accent-colored, fade-in only)
 local _searchHighlightPool = {}
 local _searchHighlightsActive = {}
@@ -5942,7 +5943,7 @@ function EllesmereUI:NavigateToElementSettings(moduleName, pageName, sectionName
     end
 
     C_Timer.After(0.05, function()
-        local cacheKey = moduleName .. "::" .. pageName
+        local cacheKey = PageCacheKey(moduleName, pageName)
         local cached = _pageCache[cacheKey]
         if not cached or not cached.wrapper then return end
 
@@ -5996,7 +5997,7 @@ end
 
 function EllesmereUI:ApplyInlineSearch(query, skipHighlights)
     if not activeModule or not activePage then return end
-    local cacheKey = activeModule .. "::" .. activePage
+    local cacheKey = PageCacheKey(activeModule, activePage)
     local cached = _pageCache[cacheKey]
     if not cached or not cached.wrapper then return end
 
@@ -6400,10 +6401,21 @@ end
 -------------------------------------------------------------------------------
 --  Page / Module Selection
 -------------------------------------------------------------------------------
--- Page cache: maps "moduleName::pageName" -> { wrapper, totalH, headerBuilder }
+-- Page cache: maps "moduleName::pageName" (optional "::vN" from config.pageLayoutVersion)
+-- -> { wrapper, totalH, headerBuilder }
 -- On revisit, we show the cached wrapper and refresh widget values instead of rebuilding.
 _pageCache = {}
 local _activePageWrapper  -- the currently-visible wrapper frame
+
+PageCacheKey = function(moduleName, pageName)
+    if not moduleName or not pageName then return nil end
+    local cfg = modules[moduleName]
+    local v = cfg and cfg.pageLayoutVersion
+    if v then
+        return moduleName .. "::" .. pageName .. "::v" .. tostring(v)
+    end
+    return moduleName .. "::" .. pageName
+end
 
 -- Invalidate all cached pages (called on profile reset, module reload, etc.)
 function EllesmereUI:InvalidatePageCache()
@@ -6449,7 +6461,7 @@ function EllesmereUI:SelectPage(pageName)
 
     -- Save current page's refresh list before switching
     if activePage then
-        local oldKey = activeModule .. "::" .. activePage
+        local oldKey = PageCacheKey(activeModule, activePage)
         if _pageCache[oldKey] then
             local rl = _pageCache[oldKey].refreshList
             if not rl then rl = {}; _pageCache[oldKey].refreshList = rl end
@@ -6472,7 +6484,7 @@ function EllesmereUI:SelectPage(pageName)
         tabBar._searchBox:SetText("")
     end
 
-    local cacheKey = activeModule .. "::" .. pageName
+    local cacheKey = PageCacheKey(activeModule, pageName)
     local cached = _pageCache[cacheKey]
 
     if cached and cached.wrapper then
@@ -6705,7 +6717,7 @@ function EllesmereUI:RefreshPage(force)
     -- when the user switches back to that tab.  If they've been orphaned,
     -- Show() makes them appear detached and the layout breaks ("settings fly
     -- all over the screen" bug).
-    local cacheKey = activeModule .. "::" .. activePage
+    local cacheKey = PageCacheKey(activeModule, activePage)
     local oldEntry = _pageCache[cacheKey]
     if oldEntry and oldEntry.wrapper then
         oldEntry.wrapper:Hide()
@@ -6781,7 +6793,7 @@ function EllesmereUI:SelectModule(folderName)
     -- Save current page's content header under the CORRECT old key
     -- before we overwrite activeModule.
     if activePage and activeModule then
-        local oldKey = activeModule .. "::" .. activePage
+        local oldKey = PageCacheKey(activeModule, activePage)
         if _pageCache[oldKey] then
             local rl = _pageCache[oldKey].refreshList
             if not rl then rl = {}; _pageCache[oldKey].refreshList = rl end
