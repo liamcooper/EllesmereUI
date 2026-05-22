@@ -219,8 +219,8 @@ initFrame:SetScript("OnEvent", function(self)
         end
 
         _, h = W:DualRow(parent, y,
-            { type="toggle", text="AH Current Expansion Only",
-              tooltip="Automatically enables the 'Current Expansion Only' filter whenever you open the Auction House.",
+            { type="toggle", text="Current Expansion Only",
+              tooltip="Automatically enables the 'Current Expansion Only' filter when you open the Auction House or Place Crafting Order window.",
               getValue=function()
                   return EllesmereUIDB and EllesmereUIDB.ahCurrentExpansion or false
               end,
@@ -1175,7 +1175,6 @@ initFrame:SetScript("OnEvent", function(self)
                 EllesmereUIDB.instanceResetAnnounceMsg = ""
                 EllesmereUIDB.quickSignup = false
                 EllesmereUIDB.persistSignupNote = false
-                EllesmereUIDB.ahCurrentExpansion = false
                 EllesmereUIDB.healthMacroEnabled = false
                 EllesmereUIDB.healthMacroPrio1 = 1
                 EllesmereUIDB.healthMacroPrio2 = 2
@@ -1183,6 +1182,7 @@ initFrame:SetScript("OnEvent", function(self)
                 EllesmereUIDB.foodMacroEnabled = false
                 EllesmereUIDB.hideScreenshotStatus = false
                 EllesmereUIDB.trainAllButton = false
+                EllesmereUIDB.ahCurrentExpansion = false
                 EllesmereUIDB.autoUnwrapCollections = false
                 EllesmereUIDB.autoOpenContainers = false
                 EllesmereUIDB.autoRepairGuild = false

@@ -415,25 +415,6 @@ qolFrame:SetScript("OnEvent", function(self)
     end
 
     ---------------------------------------------------------------------------
-    --  AH Current Expansion Only
-    ---------------------------------------------------------------------------
-    do
-        local ahFrame = CreateFrame("Frame")
-        ahFrame:RegisterEvent("AUCTION_HOUSE_SHOW")
-        ahFrame:SetScript("OnEvent", function()
-            if not (EllesmereUIDB and EllesmereUIDB.ahCurrentExpansion) then return end
-            if not AuctionHouseFrame or not AuctionHouseFrame.SearchBar then return end
-            C_Timer.After(0, function()
-                local fb = AuctionHouseFrame.SearchBar.FilterButton
-                if not fb or not fb.filters then return end
-                if not (Enum and Enum.AuctionHouseFilter and Enum.AuctionHouseFilter.CurrentExpansionOnly) then return end
-                fb.filters[Enum.AuctionHouseFilter.CurrentExpansionOnly] = true
-                AuctionHouseFrame.SearchBar:UpdateClearFiltersButton()
-            end)
-        end)
-    end
-
-    ---------------------------------------------------------------------------
     --  Auto Sell Junk + Auto Repair
     ---------------------------------------------------------------------------
     local merchantFrame = CreateFrame("Frame", "EUI_MerchantHandler", UIParent)
