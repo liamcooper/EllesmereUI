@@ -534,6 +534,11 @@ initFrame:SetScript("OnEvent", function(self)
         arrows.right:SetSize(11, 16)
         arrows.right:SetPoint("LEFT", health, "RIGHT", 8, 0)
         arrows.right:Hide()
+        do
+            local c = (DB() and DB().targetArrowColor) or defaults.targetArrowColor
+            arrows.left:SetVertexColor(c.r, c.g, c.b, 1)
+            arrows.right:SetVertexColor(c.r, c.g, c.b, 1)
+        end
         pf._arrows = arrows  -- expose for Update resizing
 
         -- Classification icon (elite dragon) shown when transient toggle is on
@@ -792,6 +797,9 @@ initFrame:SetScript("OnEvent", function(self)
             if pf._arrows then
                 pf._arrows.left:SetSize(arrowW, arrowH)
                 pf._arrows.right:SetSize(arrowW, arrowH)
+                local arrowColor = (DB() and DB().targetArrowColor) or defaults.targetArrowColor
+                pf._arrows.left:SetVertexColor(arrowColor.r, arrowColor.g, arrowColor.b, 1)
+                pf._arrows.right:SetVertexColor(arrowColor.r, arrowColor.g, arrowColor.b, 1)
             end
             local cbColor    = (DB() and DB().castBar) or defaults.castBar
             local debuffY    = DBVal("debuffYOffset") or defaults.debuffYOffset
@@ -4669,10 +4677,36 @@ initFrame:SetScript("OnEvent", function(self)
                 UpdatePreview()
               end });  y = y - h
 
-        -- Inline cog on Show Arrows (right region) for arrow scale
+        -- Inline color swatch + cog on Show Arrows (right region)
         do
             local rightRgn = targetGlowRow._rightRegion
             local arrowOff = function() return DBVal("showTargetArrows") ~= true end
+
+            local arrowColorGet = function()
+                local c = (DB() and DB().targetArrowColor) or defaults.targetArrowColor
+                return c.r, c.g, c.b
+            end
+            local arrowColorSet = function(r, g, b)
+                DB().targetArrowColor = { r = r, g = g, b = b }
+                if ns.ApplyTargetArrowColor then
+                    for _, plate in pairs(plates) do ns.ApplyTargetArrowColor(plate) end
+                    for _, plate in pairs(ns.friendlyPlates or {}) do ns.ApplyTargetArrowColor(plate) end
+                end
+                UpdatePreview()
+            end
+            local swatch, updateSwatch = EllesmereUI.BuildColorSwatch(rightRgn, rightRgn:GetFrameLevel() + 5, arrowColorGet, arrowColorSet, nil, 20)
+            PP.Point(swatch, "RIGHT", rightRgn._control, "LEFT", -12, 0)
+            rightRgn._lastInline = swatch
+            EllesmereUI.RegisterWidgetRefresh(function()
+                local off = arrowOff()
+                swatch:SetAlpha(off and 0.15 or 1)
+                swatch:EnableMouse(not off)
+                updateSwatch()
+            end)
+            local off = arrowOff()
+            swatch:SetAlpha(off and 0.15 or 1)
+            swatch:EnableMouse(not off)
+
             local _, arrowCogShow = EllesmereUI.BuildCogPopup({
                 title = "Arrow Scale",
                 rows = {
@@ -4693,7 +4727,7 @@ initFrame:SetScript("OnEvent", function(self)
             })
             local arrowCogBtn = CreateFrame("Button", nil, rightRgn)
             arrowCogBtn:SetSize(26, 26)
-            arrowCogBtn:SetPoint("RIGHT", rightRgn._control, "LEFT", -8, 0)
+            arrowCogBtn:SetPoint("RIGHT", rightRgn._lastInline or rightRgn._control, "LEFT", -8, 0)
             rightRgn._lastInline = arrowCogBtn
             arrowCogBtn:SetFrameLevel(rightRgn:GetFrameLevel() + 5)
             local arrowCogTex = arrowCogBtn:CreateTexture(nil, "OVERLAY")

@@ -31,6 +31,16 @@ local Enum = Enum
 local friendlyEnabled = false
 local friendlyPlates = {}
 ns.friendlyPlates = friendlyPlates
+
+function ns.ApplyTargetArrowColor(plate)
+    if not plate.leftArrow then return end
+    local prof = ns.db and ns.db.profile
+    local def = ns.defaults and ns.defaults.targetArrowColor
+    local c = (prof and prof.targetArrowColor) or def or { r = 1, g = 1, b = 1 }
+    plate.leftArrow:SetVertexColor(c.r, c.g, c.b, 1)
+    plate.rightArrow:SetVertexColor(c.r, c.g, c.b, 1)
+end
+
 local _cachedFriendlyTargetPlate = nil
 
 local FRIENDLY_BAR_W = 150
@@ -665,6 +675,7 @@ local friendlyFrameCache = CreateFramePool("Frame", UIParent, nil, nil, false, f
     plate.rightArrow:SetSize(11, 16)
     plate.rightArrow:SetPoint("LEFT", plate.name, "RIGHT", 2, 0)
     plate.rightArrow:Hide()
+    if ns.ApplyTargetArrowColor then ns.ApplyTargetArrowColor(plate) end
 
     plate.raidFrame = CreateFrame("Frame", nil, plate)
     plate.raidFrame:SetSize(24, 24)
@@ -824,6 +835,7 @@ function FriendlyFrame:ApplyTarget()
     local isTarget = UnitIsUnit(self.unit, "target")
     self.glow:SetShown(isTarget)
     local showArrows = isTarget and FP() and FP().showTargetArrows
+    if showArrows and ns.ApplyTargetArrowColor then ns.ApplyTargetArrowColor(self) end
     self.leftArrow:SetShown(showArrows or false)
     self.rightArrow:SetShown(showArrows or false)
 end

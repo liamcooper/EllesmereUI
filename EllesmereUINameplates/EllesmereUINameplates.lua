@@ -152,6 +152,7 @@ local defaults = {
     textSlotCenter = "none",
     showTargetArrows = false,
     targetArrowScale = 1.0,
+    targetArrowColor = { r = 1.0, g = 1.0, b = 1.0 },
     showClassPower = false,
     classPowerPos = "bottom",
     classPowerYOffset = 1,
@@ -1343,6 +1344,7 @@ local function EnsureArrows(plate)
     PP.Size(plate.rightArrow, aw, ah)
     PP.Point(plate.rightArrow, "LEFT", plate.health, "RIGHT", 8, 0)
     plate.rightArrow:Hide()
+    ns.ApplyTargetArrowColor(plate)
 end
 
 local function EnsureFocusOverlay(plate)
@@ -4200,6 +4202,7 @@ function NameplateFrame:ApplyTarget()
             local aw, ah = math.floor(11 * sc + 0.5), math.floor(16 * sc + 0.5)
             PP.Size(self.leftArrow,  aw, ah)
             PP.Size(self.rightArrow, aw, ah)
+            ns.ApplyTargetArrowColor(self)
             self.leftArrow:Show()
             self.rightArrow:Show()
             PositionArrowsOutsideAuras(self)
