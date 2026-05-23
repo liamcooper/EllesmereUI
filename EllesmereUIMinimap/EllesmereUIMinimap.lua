@@ -3272,6 +3272,10 @@ local function ApplyMinimap()
 
     -- Mark module as active so persistent hooks know they can fire
     GetFFD(minimap).active = true
+
+    if _G._EMM_InstallMinimapMiddleClick then
+        _G._EMM_InstallMinimapMiddleClick(minimap)
+    end
 end
 
 
@@ -3475,23 +3479,55 @@ do
         SetMenuVisible(not menuOpen)
     end
 
-    local _microMenuHooked = false
-    local function HookMinimapMiddleClick()
-        if _microMenuHooked then return end
-        local minimap = Minimap
-        if not minimap then return end
-        _microMenuHooked = true
-        minimap:HookScript("OnMouseUp", function(_, btn)
-            if btn == "MiddleButton" then ToggleMicroMenu() end
-        end)
+    local function PassThroughLR(frame)
+        if not frame or not frame.SetPassThroughButtons then return end
+        if securecallfunction then
+            securecallfunction(frame.SetPassThroughButtons, frame, "LeftButton", "RightButton")
+        else
+            frame:SetPassThroughButtons("LeftButton", "RightButton")
+        end
     end
 
-    local hookFrame = CreateFrame("Frame")
-    hookFrame:RegisterEvent("PLAYER_LOGIN")
-    hookFrame:SetScript("OnEvent", function(self)
-        self:UnregisterEvent("PLAYER_LOGIN")
-        CreateMenuFrame()
-        HookMinimapMiddleClick()
+    local function InstallMinimapMiddleClick(minimap)
+        if not minimap then return end
+        local ffd = GetFFD(minimap)
+
+        local clickHandler = ffd.middleClickHandler
+        if not clickHandler then
+            clickHandler = CreateFrame("Frame", "EllesmereUIMinimapClickHandler", minimap)
+            ffd.middleClickHandler = clickHandler
+            clickHandler:SetScript("OnMouseDown", function(_, btn)
+                if btn == "MiddleButton" then ToggleMicroMenu() end
+            end)
+        end
+
+        clickHandler:SetAllPoints()
+        clickHandler:EnableMouse(true)
+        clickHandler:SetPropagateMouseMotion(true)
+        if clickHandler.SetFrameLevel then
+            clickHandler:SetFrameLevel(minimap:GetFrameLevel() + 101)
+        end
+        PassThroughLR(clickHandler)
+
+        if not _G.HybridMinimap and C_AddOns and C_AddOns.LoadAddOn then
+            pcall(C_AddOns.LoadAddOn, "Blizzard_HybridMinimap")
+        end
+        local mapCanvas = _G.HybridMinimap and _G.HybridMinimap.MapCanvas
+        if mapCanvas then
+            PassThroughLR(mapCanvas)
+            PassThroughLR(mapCanvas.ScrollContainer)
+        end
+    end
+
+    _G._EMM_InstallMinimapMiddleClick = InstallMinimapMiddleClick
+
+    local hybridWatcher = CreateFrame("Frame")
+    hybridWatcher:RegisterEvent("ADDON_LOADED")
+    hybridWatcher:SetScript("OnEvent", function(_, _, addon)
+        if addon == "Blizzard_HybridMinimap" then
+            hybridWatcher:UnregisterAllEvents()
+            InstallMinimapMiddleClick(Minimap)
+        end
     end)
 end
 
