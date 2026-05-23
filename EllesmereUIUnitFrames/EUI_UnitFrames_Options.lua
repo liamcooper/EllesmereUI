@@ -284,6 +284,18 @@ initFrame:SetScript("OnEvent", function(self)
     }
     local healthTextOrder = { "none", "---", "name", "perhp", "perhpnosign", "curhpshort", "perhpnum", "both" }
 
+    local PREVIEW_TEXT_WIDTHS = {
+        both = 75, perhpnum = 75, curhpshort = 38, perhp = 38, perhpnosign = 30,
+        perpp = 38, curpp = 38, curhp_curpp = 75, perhp_perpp = 75,
+    }
+    local function EstimatePreviewTextWidth(content)
+        return (PREVIEW_TEXT_WIDTHS[content] or 0) + 10
+    end
+
+    local function IsCompactUFUnitKey(unitKey)
+        return unitKey == "pet" or unitKey == "targettarget" or unitKey == "boss"
+    end
+
     -- Text bar (BTB) text dropdown values (includes power options)
     local btbTextValues = {
         ["name"]         = "Name",
@@ -718,7 +730,7 @@ initFrame:SetScript("OnEvent", function(self)
 
         -- Mini frames (ToT/FoT/Pet) don't render power bars, debuffs, or
         -- castbars at runtime, so the preview must match.
-        local isMiniPreview = (unitKey == "targettarget" or unitKey == "pet")
+        local isMiniPreview = IsCompactUFUnitKey(unitKey)
         local noPowerPreview = isMiniPreview
         local noDebuffPreview = isMiniPreview
         local noCastbarPreview = isMiniPreview
@@ -1065,10 +1077,12 @@ initFrame:SetScript("OnEvent", function(self)
                 fs:SetTextColor(0, 0, 1)
             end
         end
-        local function ApplyPreviewTextPositions(s, donorS)
+        local function ApplyPreviewTextPositions(s, donorS, layoutOpts)
+            layoutOpts = layoutOpts or {}
             local lc = s.leftTextContent or "name"
             local rc = s.rightTextContent or (unitKey == "focus" and "perhp" or "both")
             local cc = s.centerTextContent or "none"
+            local showSides = not layoutOpts.centerExclusive or cc == "none"
             local fontS = donorS or s
             local lsz = fontS.leftTextSize or fontS.textSize or 12
             local rsz = fontS.rightTextSize or fontS.textSize or 12
@@ -1079,57 +1093,64 @@ initFrame:SetScript("OnEvent", function(self)
             local ryo = s.rightTextY or 0
             local cxo = s.centerTextX or 0
             local cyo = s.centerTextY or 0
+            local barW = s.frameWidth or 181
+            local wide = layoutOpts.wide
 
-
-            -- Center text: if active, hide left/right
             if cc ~= "none" then
-                leftFS:Hide()
-                rightFS:Hide()
                 centerFS:SetFont(PREVIEW_FONT, csz, GetUFOptOutline())
                 centerFS:ClearAllPoints()
                 centerFS:SetJustifyH("CENTER")
                 PP.Point(centerFS, "CENTER", textOverlay, "CENTER", cxo, cyo)
+                if wide then PP.Width(centerFS, barW * 0.9) else centerFS:SetWidth(0) end
                 centerFS:SetText(PreviewTextForContent(cc, s))
                 centerFS:Show()
                 PreviewClassColor(centerFS, s.centerTextClassColor, s.centerTextColorR, s.centerTextColorG, s.centerTextColorB)
             else
                 centerFS:Hide()
-                leftFS:SetFont(PREVIEW_FONT, lsz, GetUFOptOutline())
-                leftFS:ClearAllPoints()
-                if lc ~= "none" then
-                    leftFS:SetJustifyH("LEFT")
-                    PP.Point(leftFS, "LEFT", textOverlay, "LEFT", 5 + lxo, lyo)
-                    -- Constrain width when opposing right text exists (matches live frame truncation)
-                    local barW = s.frameWidth or 181
-                    if rc ~= "none" then
-                        local UF_TEXT_PADDING = 10
-                        local ufTW = { both = 75, curhpshort = 38, perhp = 38, perpp = 38, curpp = 38, curhp_curpp = 75, perhp_perpp = 75 }
-                        local rightUsed = (ufTW[rc] or 0) + UF_TEXT_PADDING
-                        PP.Width(leftFS, math.max(barW - rightUsed - 10, 20))
-                    else
-                        leftFS:SetWidth(0)
-                    end
-                    leftFS:SetText(PreviewTextForContent(lc, s))
-                    leftFS:Show()
-                    PreviewClassColor(leftFS, s.leftTextClassColor, s.leftTextColorR, s.leftTextColorG, s.leftTextColorB)
-                else
-                    leftFS:Hide()
-                end
+            end
 
-                rightFS:SetFont(PREVIEW_FONT, rsz, GetUFOptOutline())
-                rightFS:ClearAllPoints()
+            leftFS:SetFont(PREVIEW_FONT, lsz, GetUFOptOutline())
+            leftFS:ClearAllPoints()
+            if showSides and lc ~= "none" then
+                leftFS:SetJustifyH("LEFT")
+                PP.Point(leftFS, "LEFT", textOverlay, "LEFT", 5 + lxo, lyo)
                 if rc ~= "none" then
-                    rightFS:SetJustifyH("RIGHT")
-                    PP.Point(rightFS, "RIGHT", textOverlay, "RIGHT", -5 + rxo, ryo)
-                    rightFS:SetText(PreviewTextForContent(rc, s))
-                    rightFS:Show()
-                    PreviewClassColor(rightFS, s.rightTextClassColor, s.rightTextColorR, s.rightTextColorG, s.rightTextColorB)
+                    PP.Width(leftFS, math.max(barW - EstimatePreviewTextWidth(rc) - 10, 20))
+                elseif wide then
+                    PP.Width(leftFS, barW * 0.9)
                 else
-                    rightFS:Hide()
+                    leftFS:SetWidth(0)
                 end
+                leftFS:SetText(PreviewTextForContent(lc, s))
+                leftFS:Show()
+                PreviewClassColor(leftFS, s.leftTextClassColor, s.leftTextColorR, s.leftTextColorG, s.leftTextColorB)
+            else
+                leftFS:Hide()
+            end
+
+            rightFS:SetFont(PREVIEW_FONT, rsz, GetUFOptOutline())
+            rightFS:ClearAllPoints()
+            if showSides and rc ~= "none" then
+                rightFS:SetJustifyH("RIGHT")
+                PP.Point(rightFS, "RIGHT", textOverlay, "RIGHT", -5 + rxo, ryo)
+                if lc ~= "none" then
+                    PP.Width(rightFS, math.max(barW - EstimatePreviewTextWidth(lc) - 10, 20))
+                elseif wide then
+                    PP.Width(rightFS, barW * 0.9)
+                else
+                    rightFS:SetWidth(0)
+                end
+                rightFS:SetText(PreviewTextForContent(rc, s))
+                rightFS:Show()
+                PreviewClassColor(rightFS, s.rightTextClassColor, s.rightTextColorR, s.rightTextColorG, s.rightTextColorB)
+            else
+                rightFS:Hide()
             end
         end
-        ApplyPreviewTextPositions(settings)
+        ApplyPreviewTextPositions(settings, nil, {
+            centerExclusive = isMiniPreview,
+            wide = isMiniPreview,
+        })
 
         -- Power bar
         local power
@@ -1964,7 +1985,10 @@ initFrame:SetScript("OnEvent", function(self)
             end
 
             -- Update text via unified function
-            ApplyPreviewTextPositions(s, isMini and ds or nil)
+            ApplyPreviewTextPositions(s, isMini and ds or nil, {
+                centerExclusive = isMiniPreview,
+                wide = isMiniPreview,
+            })
 
             -- Resize barArea to health+power area (+ above pips if active)
             PP.Size(barArea, tw, bh2 + btbTopOff)
@@ -4287,8 +4311,6 @@ initFrame:SetScript("OnEvent", function(self)
                   end
                   UpdatePreview(); EllesmereUI:RefreshPage()
               end,
-              disabled=function() return SVal("centerTextContent", "none") ~= "none" end,
-              disabledTooltip="This option is disabled while a Center Text is selected.",
             },
             { type="dropdown", text="Right Text", values=healthTextValues, order=healthTextOrder,
               getValue=function() return SVal("rightTextContent", "both") end,
@@ -4300,8 +4322,6 @@ initFrame:SetScript("OnEvent", function(self)
                   end
                   UpdatePreview(); EllesmereUI:RefreshPage()
               end,
-              disabled=function() return SVal("centerTextContent", "none") ~= "none" end,
-              disabledTooltip="This option is disabled while a Center Text is selected.",
             });  y = y - h
         -- Sync icons: Left Text (left) and Right Text (right)
         do
@@ -4507,8 +4527,8 @@ initFrame:SetScript("OnEvent", function(self)
               setValue=function(v)
                   SSet("centerTextContent", v)
                   if v ~= "none" then
-                      SSet("leftTextContent", "none")
-                      SSet("rightTextContent", "none")
+                      if SGet("leftTextContent") == v then SSet("leftTextContent", "none") end
+                      if SGet("rightTextContent") == v then SSet("rightTextContent", "none") end
                   end
                   ReloadAndUpdate(); UpdatePreview()
               end },
@@ -6257,8 +6277,8 @@ initFrame:SetScript("OnEvent", function(self)
               setValue=function(v)
                   SSet("btbCenterContent", v)
                   if v ~= "none" then
-                      SSet("btbLeftContent", "none")
-                      SSet("btbRightContent", "none")
+                      if SGet("btbLeftContent") == v then SSet("btbLeftContent", "none") end
+                      if SGet("btbRightContent") == v then SSet("btbRightContent", "none") end
                   end
                   ReloadAndUpdate(); UpdatePreview()
               end },
@@ -8034,7 +8054,6 @@ initFrame:SetScript("OnEvent", function(self)
             UpdCog(); RegisterWidgetRefresh(UpdCog)
         end
 
-        -- Row 4: Center Text + Reverse Fill (with inline swatch + cog on Center)
         local centerRow
         centerRow, h = W:DualRow(parent, y,
             { type="dropdown", text="Center Text", values=healthTextValues, order=healthTextOrder,
@@ -8047,67 +8066,66 @@ initFrame:SetScript("OnEvent", function(self)
                 end
                 ReloadAndUpdate(); EllesmereUI:RefreshPage()
               end },
-            { type="toggle", text="Reverse Fill",
-              getValue=function() return settingsTable.healthReverseFill end,
-              setValue=function(v) settingsTable.healthReverseFill = v; ReloadAndUpdate() end });  y = y - h
-        -- Inline swatch + cog on Center Text
-        do
-            local rgn = centerRow._leftRegion
-            local swGet = function()
-                return MVal("centerTextColorR", 1), MVal("centerTextColorG", 1), MVal("centerTextColorB", 1)
-            end
-            local swSet = function(r, g, b)
-                settingsTable.centerTextColorR = r; settingsTable.centerTextColorG = g; settingsTable.centerTextColorB = b
-                ReloadAndUpdate()
-            end
-            local sw, swUp = EllesmereUI.BuildColorSwatch(rgn, rgn:GetFrameLevel() + 5, swGet, swSet, nil, 20)
-            PP.Point(sw, "RIGHT", rgn._lastInline or rgn._control, "LEFT", -8, 0)
-            rgn._lastInline = sw
-            local blk = CreateFrame("Frame", nil, sw)
-            blk:SetAllPoints(); blk:SetFrameLevel(sw:GetFrameLevel() + 10); blk:EnableMouse(true)
-            blk:SetScript("OnEnter", function() EllesmereUI.ShowWidgetTooltip(sw, EllesmereUI.DisabledTooltip("Center Text")) end)
-            blk:SetScript("OnLeave", function() EllesmereUI.HideWidgetTooltip() end)
-            RegisterWidgetRefresh(function()
-                local isNone = MVal("centerTextContent", "none") == "none"
-                local isClass = MVal("centerTextClassColor", false)
-                if isNone or isClass then sw:SetAlpha(0.3); blk:Show() else sw:SetAlpha(1); blk:Hide() end
-                swUp()
-            end)
-            local initOff = MVal("centerTextContent", "none") == "none" or MVal("centerTextClassColor", false)
-            sw:SetAlpha(initOff and 0.3 or 1)
-            if initOff then blk:Show() else blk:Hide() end
+                { type="toggle", text="Reverse Fill",
+                  getValue=function() return settingsTable.healthReverseFill end,
+                  setValue=function(v) settingsTable.healthReverseFill = v; ReloadAndUpdate() end });  y = y - h
+            do
+                local rgn = centerRow._leftRegion
+                local swGet = function()
+                    return MVal("centerTextColorR", 1), MVal("centerTextColorG", 1), MVal("centerTextColorB", 1)
+                end
+                local swSet = function(r, g, b)
+                    settingsTable.centerTextColorR = r; settingsTable.centerTextColorG = g; settingsTable.centerTextColorB = b
+                    ReloadAndUpdate()
+                end
+                local sw, swUp = EllesmereUI.BuildColorSwatch(rgn, rgn:GetFrameLevel() + 5, swGet, swSet, nil, 20)
+                PP.Point(sw, "RIGHT", rgn._lastInline or rgn._control, "LEFT", -8, 0)
+                rgn._lastInline = sw
+                local blk = CreateFrame("Frame", nil, sw)
+                blk:SetAllPoints(); blk:SetFrameLevel(sw:GetFrameLevel() + 10); blk:EnableMouse(true)
+                blk:SetScript("OnEnter", function() EllesmereUI.ShowWidgetTooltip(sw, EllesmereUI.DisabledTooltip("Center Text")) end)
+                blk:SetScript("OnLeave", function() EllesmereUI.HideWidgetTooltip() end)
+                RegisterWidgetRefresh(function()
+                    local isNone = MVal("centerTextContent", "none") == "none"
+                    local isClass = MVal("centerTextClassColor", false)
+                    if isNone or isClass then sw:SetAlpha(0.3); blk:Show() else sw:SetAlpha(1); blk:Hide() end
+                    swUp()
+                end)
+                local initOff = MVal("centerTextContent", "none") == "none" or MVal("centerTextClassColor", false)
+                sw:SetAlpha(initOff and 0.3 or 1)
+                if initOff then blk:Show() else blk:Hide() end
 
-            local _, cogShowFn = EllesmereUI.BuildCogPopup({
-                title = "Center Text Settings",
-                rows = {
-                    { type="toggle", label="Class Color",
-                      get=function() return MVal("centerTextClassColor", false) end,
-                      set=function(v) MSet("centerTextClassColor", v); EllesmereUI:RefreshPage() end },
-                    { type="slider", label="Size", min=8, max=24, step=1,
-                      get=function() return MVal("centerTextSize", settingsTable.textSize or 12) end,
-                      set=function(v) MSet("centerTextSize", v) end },
-                    { type="slider", label="X", min=-50, max=50, step=1,
-                      get=function() return MVal("centerTextX", 0) end,
-                      set=function(v) MSet("centerTextX", v) end },
-                    { type="slider", label="Y", min=-30, max=30, step=1,
-                      get=function() return MVal("centerTextY", 0) end,
-                      set=function(v) MSet("centerTextY", v) end },
-                },
-            })
-            local cogBtn = MCogBtn(rgn, cogShowFn)
-            local function UpdCog()
-                local isNone = MVal("centerTextContent", "none") == "none"
-                cogBtn:SetAlpha(isNone and 0.15 or 0.4)
+                local _, cogShowFn = EllesmereUI.BuildCogPopup({
+                    title = "Center Text Settings",
+                    rows = {
+                        { type="toggle", label="Class Color",
+                          get=function() return MVal("centerTextClassColor", false) end,
+                          set=function(v) MSet("centerTextClassColor", v); EllesmereUI:RefreshPage() end },
+                        { type="slider", label="Size", min=8, max=24, step=1,
+                          get=function() return MVal("centerTextSize", settingsTable.textSize or 12) end,
+                          set=function(v) MSet("centerTextSize", v) end },
+                        { type="slider", label="X", min=-50, max=50, step=1,
+                          get=function() return MVal("centerTextX", 0) end,
+                          set=function(v) MSet("centerTextX", v) end },
+                        { type="slider", label="Y", min=-30, max=30, step=1,
+                          get=function() return MVal("centerTextY", 0) end,
+                          set=function(v) MSet("centerTextY", v) end },
+                    },
+                })
+                local cogBtn = MCogBtn(rgn, cogShowFn)
+                local function UpdCog()
+                    local isNone = MVal("centerTextContent", "none") == "none"
+                    cogBtn:SetAlpha(isNone and 0.15 or 0.4)
+                end
+                cogBtn:SetScript("OnEnter", function(self)
+                    if MVal("centerTextContent", "none") == "none" then
+                        EllesmereUI.ShowWidgetTooltip(self, EllesmereUI.DisabledTooltip("This option requires a text selection other than none."))
+                    else self:SetAlpha(0.7) end
+                end)
+                cogBtn:SetScript("OnLeave", function(self) UpdCog(); EllesmereUI.HideWidgetTooltip() end)
+                cogBtn:SetScript("OnClick", function(self) if MVal("centerTextContent", "none") ~= "none" then cogShowFn(self) end end)
+                UpdCog(); RegisterWidgetRefresh(UpdCog)
             end
-            cogBtn:SetScript("OnEnter", function(self)
-                if MVal("centerTextContent", "none") == "none" then
-                    EllesmereUI.ShowWidgetTooltip(self, EllesmereUI.DisabledTooltip("This option requires a text selection other than none."))
-                else self:SetAlpha(0.7) end
-            end)
-            cogBtn:SetScript("OnLeave", function(self) UpdCog(); EllesmereUI.HideWidgetTooltip() end)
-            cogBtn:SetScript("OnClick", function(self) if MVal("centerTextContent", "none") ~= "none" then cogShowFn(self) end end)
-            UpdCog(); RegisterWidgetRefresh(UpdCog)
-        end
 
         return y, displayHeader, sizeRow, textHeader, textRow, enableRowFrame
     end
